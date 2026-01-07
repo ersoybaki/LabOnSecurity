@@ -1,42 +1,19 @@
 #!/usr/bin/env python3
 """
-Simple network scanner to find all devices on your network
+Simple network scanner to find all devices on your network (Windows auto-detect).
 """
-from scapy.all import ARP, Ether, srp
+
 import sys
+from mitmtool.netutils import autodetect_network_windows, scan_network
 
-def scan_network(network_range):
-    """
-    Scan network and return list of devices with IP and MAC
-    """
-    print(f"[*] Scanning network: {network_range}")
-    print("[*] This may take 30-60 seconds...\n")
-    
-    # Create ARP request for entire subnet
-    arp = ARP(pdst=network_range)
-    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
-    packet = ether / arp
-    
-    # Send packets and get responses
-    result = srp(packet, timeout=3, verbose=0)[0]
-    
-    devices = []
-    for sent, received in result:
-        devices.append({
-            'ip': received.psrc,
-            'mac': received.hwsrc
-        })
-    
-    return devices
 
-def identify_device_type(mac):
+def identify_device_type(mac: str) -> str:
     """
-    Identify device type based on MAC address
+    Very simple manufacturer check by OUI prefix.
+    Keep your big Apple list if you want — this works the same way.
     """
-    # First 3 bytes identify manufacturer
     oui = mac.upper()[:8]
-    
-    # Common Apple OUIs (first 3 bytes)
+
     apple_ouis = [
         '00:03:93', '00:05:02', '00:0A:27', '00:0A:95', '00:0D:93',
         '00:10:FA', '00:11:24', '00:13:E3', '00:14:51', '00:16:CB',
@@ -99,36 +76,43 @@ def identify_device_type(mac):
         'F0:DC:E2', 'F0:F6:1C', 'F4:0F:24', 'F4:37:B7', 'F4:5C:89',
         'F4:F1:5A', 'F4:F9:51', 'F8:1E:DF', 'F8:27:93', 'F8:2D:7C',
         'FC:25:3F', 'FC:E9:98', 'FC:FC:48',
-    ]
-    
-    for oui in apple_ouis:
-        if mac.upper().startswith(oui):
-            return "Apple Device (iPhone/iPad/Mac)"
-    
+    ] 
+
+    if oui in apple_ouis:
+        return "Apple Device (iPhone/iPad/Mac)"
+
     return "Unknown"
 
+
 if __name__ == "__main__":
-    # Your network range - change this if different
-    network = "10.0.0.0/24"
-    
+    try:
+        network, my_ip, gateway = autodetect_network_windows()
+    except Exception as e:
+        print(f"[-] Failed to auto-detect network: {e}")
+        sys.exit(1)
+
     print("=" * 60)
     print("Network Device Scanner")
     print("=" * 60)
     print()
-    
+    print(f"[*] My IP:            {my_ip}")
+    print(f"[*] Default gateway:  {gateway}")
+    print(f"[*] Network CIDR:     {network}")
+    print()
+
     devices = scan_network(network)
-    
+
     if not devices:
         print("[-] No devices found!")
         sys.exit(1)
-    
-    print(f"\n[+] Found {len(devices)} device(s):\n")
+
+    print(f"[+] Found {len(devices)} device(s):\n")
     print(f"{'IP Address':<15} {'MAC Address':<20} {'Device Type'}")
     print("-" * 70)
-    
-    for device in devices:
-        device_type = identify_device_type(device['mac'])
-        print(f"{device['ip']:<15} {device['mac']:<20} {device_type}")
-    
+
+    for d in devices:
+        dtype = identify_device_type(d["mac"])
+        print(f"{d['ip']:<15} {d['mac']:<20} {dtype}")
+
     print()
-    print("[*] Look for 'Apple Device' to find your iPhone")
+    print("[*] Done.")  
