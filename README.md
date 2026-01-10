@@ -59,17 +59,50 @@ Step by step on how to reproduce the ARP spoofing attack using the provided *arp
 
 ### Step 8: Verify the attack
 - On Victim VM: `arp -a`
-- The gateway IP should now resolve the the attacker's MAC address
+- The gateway IP should now resolve the attacker's MAC address
 
-- In Wireshark: Observe repeated ARP relpy packets **(opcode 2)**.
+- In Wireshark: Observe repeated ARP reply packets **(opcode 2)**.
 
 ### Step 9: Reset and test again
 - On Victim VM: `sudo ip neigh flush all`
 - Optional: `sudo systemctl restart NetworkManager`
 
+### Continuation of ARP spoofing, DNS poisoning Test Guide
+Step by step on how to reproduce the DNS Poisoning attack with the ARP spoofing attack using the provided *arp.py*, *dns.py* and *main.py* script in a safe virtualized environment.
+
+### Step 10: Trap Preparation
+On Attacker VM: 
+- `echo "<h1>YOU HAVE BEEN HACKED</h1>" > index.html` to create the fake webpage.
+- `sudo python3 -m http.server 80` start the server on port 80.
+Keep the terminal open at Attacker VM. When it show log entries "GET / HTTP/1.1" 200, it means the victim is connected.
+
+### Step 11: Run the DNS poisoning attack
+On Attacker VM:
+1. Open a new terminal.
+2. Navigate to the folder containing the scripts.
+3. `sudo python3 main.py --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain www.example.com` to run the tool.
+4. Verify the output:
+- "[+] Arp Spoofing started..." and 
+- "[+] DNS Sniffer started..."
+
+### Step 12: Testing the attack
+On Victim VM:
+1. `sudo resolvectl flush-caches` to clear the DNS cahce before testing.(Must clear it befor testing)
+2. Test:
+- OPTION A
+	- `ping <TARGET_DOMAIN>` 
+	After pingin the taget domain from Victim VM, if the response is coming from <ATTACKER_IP>, it means attack succeeded.
+- OPTION B
+	- Open Firefox and visit http://<TARGET_DOMAIN>
+	- You should see the "YOU HAVE BEEN HACKED" page.
+	Note: Use HTTP not HTTPS because at this point of our attack we have not set up SSL Stripping yet.
+
+
+
+
 ### Notes:
 - **NAT and Host-only modes are safe.**
 - **Do not use Bridged mode.**
-- **Always run this attack only in controlled lab environments.**
+- **Always run these attack only in controlled lab environments.**
 
 
