@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 
 from scapy.all import *
-from netfilterqueue import NetfilterQueue
+try:
+    from netfilterqueue import NetfilterQueue
+    NETFILTER_AVAILABLE = True
+except ImportError:
+    NETFILTER_AVAILABLE = False
+    print("[!] NetfilterQueue not available - only sniff mode will work")
 import re
 import threading
 from collections import defaultdict

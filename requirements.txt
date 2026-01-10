@@ -1,1 +1,3 @@
 scapy
+NetfilterQueue  # For SSL stripping (Linux only)
+# Note: On Windows, NetfilterQueue won't work. Use sniff mode instead.

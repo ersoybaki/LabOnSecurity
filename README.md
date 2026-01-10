@@ -53,13 +53,13 @@ Step by step on how to reproduce the ARP spoofing attack using the provided *arp
 
 ### Step 7: Run the ARP spoofing attack
 1. Navigate to the directory containing *arp.py*.
-2. Modify the `__main__` section at the end of the arp.py script with the actual IP addresses
-3. Run the attack script with `python3 arp.py`
+2. Modify the section at *test_arp.py* script with the actual IP addresses
+3. Run the attack script with `sudo python3 test_arp.py`
 4. To stop the attack, press *CTRL + C*
 
 ### Step 8: Verify the attack
 - On Victim VM: `arp -a`
-- The gateway IP should now resolve the the attacker's MAC address
+- The gateway IP should now resolve the attacker's MAC address
 
 - In Wireshark: Observe repeated ARP relpy packets **(opcode 2)**.
 
@@ -71,5 +71,14 @@ Step by step on how to reproduce the ARP spoofing attack using the provided *arp
 - **NAT and Host-only modes are safe.**
 - **Do not use Bridged mode.**
 - **Always run this attack only in controlled lab environments.**
+
+## SSL Stripping Test Guide
+
+### Step 1: 
+- Run command: `sudo python3 mitmtool/main.py --victim 192.168.232.XXX --gateway 192.168.232.2 --attacker 192.168.232.129 --sslstrip`
+
+## Step 2:
+- Open another terminal: `tail -f sslstrip.log`
+- On Victim VM, open a browser and visit HTTP sites. Try submitting a login form with dummy credentials.
 
 
