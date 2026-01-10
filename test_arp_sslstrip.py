@@ -75,8 +75,8 @@ def test_combined_attack():
     print_banner()
     
     # CONFIGURATION - CHANGE THESE FOR YOUR NETWORK
-    target_ip = "10.0.0.40"     # Victim device IP
-    gateway_ip = "10.0.0.1"      # Router/Gateway IP
+    target_ip = ""     # Victim device IP
+    gateway_ip = ""      # Router/Gateway IP
     interface = "Ethernet"        # Network interface to sniff on
     
     print(f"[*] Target (Victim): {target_ip}")
@@ -136,8 +136,8 @@ def test_combined_attack():
     print("   Or:  http://neverssl.com")
     print()
     print("3. Try to login with test credentials:")
-    print("   Username: test")
-    print("   Password: test123")
+    print("   Username: ")
+    print("   Password:")
     print()
     print("4. Watch this window for captured data")
     print()
@@ -237,8 +237,8 @@ def test_manual_steps():
     print("   - http://neverssl.com")
     print()
     print("3. Try to login:")
-    print("   Username: test")
-    print("   Password: test123")
+    print("   Username:")
+    print("   Password:")
     print()
     print("4. Check attacker's terminal for captured data")
     print()
@@ -252,12 +252,10 @@ def test_manual_steps():
     print("[CREDENTIALS CAPTURED]")
     print("POST /login HTTP/1.1")
     print("Host: testphp.vulnweb.com")
-    print("username=test&password=test123")
     print()
     print("In sslstrip.log file:")
     print("-" * 70)
     print("[12:34:56] POST Request to testphp.vulnweb.com")
-    print("[12:34:56] username=test&password=test123")
     print()
     
     print("=" * 70)
