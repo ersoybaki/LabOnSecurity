@@ -8,7 +8,7 @@ import arp
 import dns
 
 def main():
-    parser = argparse.ArgumentParser(description="ARP and DNS Spoofing Tool. Victim and Gateway IPs required.")
+    parser = argparse.ArgumentParser(description="ARP, DNS Spoofing and SSL Stripping Tool. Victim and Gateway IPs required.")
     parser.add_argument("--victim", required=True, help="IP address of the victim machine")
     parser.add_argument("--gateway", required=True, help="IP address of the gateway")
     parser.add_argument("--attacker", required=True, help="IP address of the attacker machine (for DNS spoofing)")
