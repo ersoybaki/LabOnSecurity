@@ -1,13 +1,17 @@
 # 2IC80 Lab on Security - Group 31
 
-## ARP Spoofing Test Guide (VMware + Ubuntu + Wireshark)
+## Man-in-the-Middle (MITM) Attack Tool
 
-Step by step on how to reproduce the ARP spoofing attack using the provided _arp.py_ script in a safe virtualized environment.
+This tool implements a suite of MITM attacks including ARP Cache Poisoning, DNS Spoofing, and SSL Stripping. It allows an attacker to intercept, redirect, and modify traffic between a victim and the gateway in a virtualized network environment.
+
+### Disclamer
+
+**For educational purposes only.** This tool is developed for the 2IC80 Lab on Security. Do not use this against any network or device you do not own or have explicit permission to test.
 
 ### Requirements
 
 - VMwware Workstation Pro
-- Two Ubuntu Virtual Machine
+- Two Ubuntu Virtual Machines
   - Attacker VM
   - Victim VM
 - Both VMs must be on the same virtual network (NAT or Host-only)
@@ -16,7 +20,7 @@ Step by step on how to reproduce the ARP spoofing attack using the provided _arp
   - Python3-scapy
   - Wireshark
 
-## Common Start Steps for All Attacks
+## Common Setup
 
 ### Step 1 - Network Setup
 
@@ -63,13 +67,17 @@ Note: If you want to run 2 VMs on 2 seperate devices, NAT or Host-only adapter m
 3. Select capture
 4. Apply filter: _arp_
 
-## Run the ARP spoofing attack
+# Attack Modes
+
+The tool works in three modes. All commands must be run with `sudo` permissons.
+
+## Mode A: ARP Spoofing Attack
 
 ### Step 1: Running the attack
 
 1. Open a new terminal
 2. Navigate to the folder containing the scripts
-3. Run the command `sudo python3 main.py --victim <VICTIM_IP> --gateway <GATEWAY_IP>`
+3. Run the command `sudo python3 main.py --mode arp --victim <VICTIM_IP> --gateway <GATEWAY_IP>`
 4. Verify the output "[+] Starting ARP Spoofing..."
 
 ### Step 2: Verify the attack
@@ -84,9 +92,9 @@ Note: If you want to run 2 VMs on 2 seperate devices, NAT or Host-only adapter m
 - On Victim VM: `sudo ip neigh flush all`
 - Optional: `sudo systemctl restart NetworkManager`
 
-## DNS poisoning attack
+## Mode B: DNS Spoofing
 
-Step by step on how to reproduce the DNS Poisoning attack with the ARP spoofing attack using the provided _arp.py_, _dns.py_ and _main.py_ script in a safe virtualized environment.
+Redirects the victim to a fake website whjen they try to visit a specific domain.
 
 ### Step 1: Trap Preparation
 
@@ -102,7 +110,7 @@ On Attacker VM:
 
 1. Open a new terminal.
 2. Navigate to the folder containing the scripts.
-3. `sudo python3 main.py --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain www.example.com` to run the tool.
+3. `sudo python3 main.py --mode dns --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain www.example.com` to run the tool.
 4. Verify the output:
 
 - "[+] Arp Spoofing started..." and
@@ -122,6 +130,30 @@ On Victim VM:
   - Open Firefox and visit http://<TARGET_DOMAIN>
   - You should see the "YOU HAVE BEEN HACKED" page.
     Note: Use HTTP not HTTPS because at this point of our attack we have not set up SSL Stripping yet.
+
+## Mode C: SSL Stripping
+
+Downgrades HTTPS connections to HTTP to steal credientials
+
+### Step 1: Run the SSL stripping attack
+
+1. Open a new terminal.
+2. Navigate to the folder containing the scripts.
+3. `sudo python3 main.py --mode ssl --victim <VICTIM_IP> --gateway <GATEWAY_IP> --interface <INTERFACE_NAME>` to run the tool.
+4. Verify the output: "[+] Starting SSL Stripping on <INTERFACE_NAME>"
+
+### Step 2: Test the Attack ():
+
+On Victim VM:
+
+- OPTION A
+  - `curl -I -L http://testphp.vulnweb.com/login.php`
+  - Success: Output shows `HTTP/1.1 200 OK` and No `Strict-Transport-Secuirty` header present.
+- OPTION B
+  - Open browser on Victim VM
+  - Go to `http://testphp.vulnweb.com/login.php` (or any non-HSTS website)
+  - Enter a username and password
+  - Success: Check the attacker terminal. You will see the raw username and password you entered
 
 ### Notes:
 

