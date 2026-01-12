@@ -14,10 +14,28 @@ import logging
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s] %(levelname)s: %(message)s',
-    datefmt='%H:%M:%S'
+    datefmt='%H:%M:%S',
+    handlers=[
+        logging.FileHandler("sslstrip.log"),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
+
+def set_log_mode(silent=False):
+    """
+    Adjusts logging based on operational mode.
+    If silent, remove console output but keep file logging.
+    """
+    if silent:
+        logger.info("Switching to SILENT logging mode (File only)")
+        # Find and remove the StreamHandler (console output)
+        for handler in logger.handlers[:]:
+            if isinstance(handler, logging.StreamHandler):
+                logger.removeHandler(handler)
+
+                
 class SSLStripper:
     def __init__(self, log_file="sslstrip.log"):
         """

