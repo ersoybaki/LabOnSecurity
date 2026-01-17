@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Simple network scanner to find all devices on your network (Windows auto-detect).
 """
